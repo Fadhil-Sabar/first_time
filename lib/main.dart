@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -94,6 +95,24 @@ class MainApp extends StatefulWidget {
 
 class _MainAppState extends State<MainApp> {
   late Future<List<Surah>> futureSurah;
+  bool isSearching = false;
+  Timer? _searchTimer;
+  String searchQuery = '';
+  Future<List<Surah>> filteredSurahList = Future.value([]);
+
+  _onSearchChanged(String query) {
+    if (_searchTimer?.isActive ?? false) _searchTimer!.cancel();
+    _searchTimer = Timer(const Duration(milliseconds: 500), () {
+      setState(() {
+        searchQuery = query;
+        filteredSurahList = futureSurah.then((surahList) {
+          return surahList
+            .where((surah) => surah.namaLatin.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+        });
+      });
+    });
+  }
 
   @override
   void initState() {
@@ -107,14 +126,45 @@ class _MainAppState extends State<MainApp> {
       debugShowCheckedModeBanner: false,
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Quran Simple'),
+          title: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: isSearching || searchQuery.isNotEmpty ? TextField(
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Search...',
+                border: InputBorder.none,
+              ),
+              style: const TextStyle(color: Colors.black),
+              onTapOutside: (_) {
+                setState(() {
+                  isSearching = false;
+                });
+              },
+              onChanged: _onSearchChanged,
+            ) : const Text('Quran Simple'),
+          ),
           centerTitle: true,
           backgroundColor: AppTheme.background,
+          actions: [
+            IconButton(
+              icon: Icon(!isSearching || searchQuery.isNotEmpty ? Icons.search : Icons.close),
+              onPressed: () {
+                // Implement search functionality here
+                setState(() {
+                  isSearching = !isSearching;
+
+                  if(isSearching) {
+                    searchQuery = '';
+                  }
+                });
+              },
+            ),
+          ],
         ),
         body: ColoredBox(
           color: AppTheme.background,
           child: FutureBuilder<List<Surah>>(
-            future: futureSurah,
+            future: isSearching || searchQuery.isNotEmpty ? filteredSurahList : futureSurah,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -123,11 +173,13 @@ class _MainAppState extends State<MainApp> {
               } else if (snapshot.hasData) {
                 final surahList = snapshot.data!;
                 return ListView.builder(
+                  cacheExtent: 1000,
                   itemCount: surahList.length,
                   itemBuilder: (context, index) {
                     final surah = surahList[index];
                     return Container(
                       margin: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
                         border: Border(
@@ -138,33 +190,30 @@ class _MainAppState extends State<MainApp> {
                         ),
                         color: AppTheme.cardColor,
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          children: [
-                            Text(surah.namaLatin, style: AppTheme.titleStyle),
-                            Text(surah.arti, style: AppTheme.subtitleStyle),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: ElevatedButton(
-                                onPressed: () {},
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.buttonColor,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    side: BorderSide(
-                                      color: Colors.black,
-                                      width: 2,
-                                    ),
+                      child: Column(
+                        children: [
+                          Text(surah.namaLatin, style: AppTheme.titleStyle),
+                          Text(surah.arti, style: AppTheme.subtitleStyle),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: ElevatedButton(
+                              onPressed: () {},
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.buttonColor,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: BorderSide(
+                                    color: Colors.black,
+                                    width: 2,
                                   ),
-                                  foregroundColor: Colors.black,
                                 ),
-                                child: Text('Baca Surah',
-                                    style: AppTheme.subtitleStyle),
+                                foregroundColor: Colors.black,
                               ),
+                              child: Text('Baca Surah',
+                                  style: AppTheme.subtitleStyle),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     );
                   },
