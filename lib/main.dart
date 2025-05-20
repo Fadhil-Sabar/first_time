@@ -15,13 +15,16 @@ class AppTheme {
     fontWeight: FontWeight.bold,
   );
   static const TextStyle subtitleStyle = TextStyle(
-      fontSize: 16, color: Colors.black54, fontWeight: FontWeight.w800);
+      fontSize: 16, color: Colors.black54, fontWeight: FontWeight.w600);
+  static const TextStyle buttonTextStyle = TextStyle(
+      fontSize: 16, color: Colors.black54, fontWeight: FontWeight.bold);
   static const TextStyle fontArabStyle = TextStyle(
-    fontSize: 30,
-    color: Colors.black,
-    fontWeight: FontWeight.bold,
-    // fontFamily: 'Amiri',
-  );
+      fontSize: 30,
+      color: Colors.black,
+      fontWeight: FontWeight.bold,
+      fontFamily: 'LPMQIsepMisbah',
+      wordSpacing: 2.0,
+      height: 2.25);
   static const TextStyle fontLatinStyle = TextStyle(
       fontSize: 15,
       color: Colors.black,
@@ -315,6 +318,9 @@ class _MainAppState extends State<MainApp> {
                   }
                 });
               },
+              tooltip: !isSearching || searchQuery.isNotEmpty
+                  ? 'Search'
+                  : 'Close',
             ),
           ],
         ),
@@ -377,7 +383,7 @@ class _MainAppState extends State<MainApp> {
                                 foregroundColor: Colors.black,
                               ),
                               child: Text('Baca Surah',
-                                  style: AppTheme.subtitleStyle),
+                                  style: AppTheme.buttonTextStyle),
                             ),
                           ),
                         ],
@@ -406,6 +412,7 @@ class SurahDetailPage extends StatefulWidget {
 
 class _SurahDetailPageState extends State<SurahDetailPage> {
   late Future<SurahDetail> futureSurahDetail;
+  int fontSizeArab = AppTheme.fontArabStyle.fontSize!.toInt();
 
   @override
   void initState() {
@@ -419,6 +426,81 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
       appBar: AppBar(
         title: Text(widget.surah.namaLatin),
         backgroundColor: AppTheme.background,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              showModalBottomSheet(
+                  context: context,
+                  builder: (context) {
+                    return Container(
+                      height: 200.00,
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.black,
+                          width: 4,
+                        ),
+                        color: AppTheme.background,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Settings',
+                            style: AppTheme.titleStyle,
+                          ),
+                          const SizedBox(height: 20),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border(
+                                left: BorderSide(color: Colors.black, width: 3),
+                                right:
+                                    BorderSide(color: Colors.black, width: 7),
+                                top: BorderSide(color: Colors.black, width: 3),
+                                bottom:
+                                    BorderSide(color: Colors.black, width: 7),
+                              ),
+                              color: AppTheme.buttonColor,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.remove),
+                                  onPressed: () {
+                                    setState(() {
+                                      if(fontSizeArab > 20) {
+                                        fontSizeArab--;
+                                      }
+                                    });
+                                  },
+                                ),
+                                Text('Font Size',
+                                    style: AppTheme.buttonTextStyle),
+                                IconButton(
+                                  icon: const Icon(Icons.add),
+                                  onPressed: () {
+                                    setState(() {
+                                      if(fontSizeArab < 40) {
+                                        fontSizeArab++;
+                                      }
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          )
+                        ],
+                      ),
+                    );
+                  });
+            },
+          ),
+        ],
       ),
       body: ColoredBox(
         color: AppTheme.background,
@@ -438,7 +520,8 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                     final ayat = surahDetail.ayat[index];
                     return Container(
                       margin: const EdgeInsets.all(10),
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.only(
+                          left: 20, right: 20, top: 30, bottom: 20),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
                         border: Border(
@@ -458,16 +541,20 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('${ayat.nomorAyat.toString()}.',
                                   style: AppTheme.titleStyle),
+                              const SizedBox(width: 10),
                               Flexible(
                                 child: Text(
                                   ayat.teksArab,
-                                  style: AppTheme.fontArabStyle,
-                                  textDirection:
-                                      TextDirection.rtl, // Ensure RTL for Arabic
+                                  style: AppTheme.fontArabStyle.copyWith(
+                                    fontSize: fontSizeArab.toDouble(),
+                                  ),
+                                  textDirection: TextDirection
+                                      .rtl, // Ensure RTL for Arabic
                                   softWrap:
                                       true, // Allow wrapping (default, but explicit)
                                   maxLines: 10, // Allow multiple lines
@@ -481,8 +568,10 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(ayat.teksLatin,
-                                  style: AppTheme.fontLatinStyle,),
+                              Text(
+                                ayat.teksLatin,
+                                style: AppTheme.fontLatinStyle,
+                              ),
                               Text(ayat.teksIndonesia,
                                   style: AppTheme.subtitleStyle),
                             ],
