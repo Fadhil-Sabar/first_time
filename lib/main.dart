@@ -4,6 +4,7 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppTheme {
   static const Color background = Color(0xFFFFFBEE);
@@ -232,6 +233,7 @@ class SurahDetailResponse extends BaseResponse {
 }
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MainApp());
 }
 
@@ -248,6 +250,23 @@ class _MainAppState extends State<MainApp> {
   Timer? _searchTimer;
   String searchQuery = '';
   Future<List<Surah>> filteredSurahList = Future.value([]);
+  int lastReadSurahNomor = 1;
+
+  Future<void> _loadLastReadSurah() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      lastReadSurahNomor = prefs.getInt('lastReadSurahNomor') ?? 1; // Default to 1
+    });
+  }
+
+  void _updateLastReadSurah(int nomor) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('lastReadSurahNomor', nomor);
+    setState(() {
+      lastReadSurahNomor = nomor;
+    });
+    debugPrint('Last read surah updated to: $nomor');
+  }
 
   _onSearchChanged(String query) {
     if (_searchTimer?.isActive ?? false) _searchTimer!.cancel();
@@ -274,6 +293,7 @@ class _MainAppState extends State<MainApp> {
   void initState() {
     super.initState();
     futureSurah = fetchListSurah();
+    _loadLastReadSurah();
   }
 
   @override
@@ -337,17 +357,18 @@ class _MainAppState extends State<MainApp> {
                 return Center(child: Text('Error: ${snapshot.error}'));
               } else if (snapshot.hasData) {
                 final surahList = snapshot.data!;
-                return ListView.builder(
-                  cacheExtent: 1000,
-                  itemCount: surahList.length,
-                  itemBuilder: (context, index) {
-                    final surah = surahList[index];
-                    return Container(
+                final lastReadSurah = surahList.firstWhere(
+                  (surah) => surah.nomor == lastReadSurahNomor,
+                  orElse: () => surahList[0],
+                );
+                return Column(
+                  children: [
+                    Container(
                       margin: const EdgeInsets.all(10),
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        border: Border(
+                        border: const Border(
                           left: BorderSide(color: Colors.black, width: 3),
                           right: BorderSide(color: Colors.black, width: 7),
                           top: BorderSide(color: Colors.black, width: 3),
@@ -355,41 +376,116 @@ class _MainAppState extends State<MainApp> {
                         ),
                         color: AppTheme.cardColor,
                       ),
-                      child: Column(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(surah.namaLatin, style: AppTheme.titleStyle),
-                          Text(surah.arti, style: AppTheme.subtitleStyle),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        SurahDetailPage(surah: surah),
-                                  ),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.buttonColor,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  side: BorderSide(
-                                    color: Colors.black,
-                                    width: 2,
-                                  ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Last Read',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black54,
                                 ),
-                                foregroundColor: Colors.black,
                               ),
-                              child: Text('Baca Surah',
-                                  style: AppTheme.buttonTextStyle),
+                              Text(
+                                lastReadSurah.namaLatin,
+                                style: AppTheme.titleStyle,
+                              ),
+                              Text(
+                                lastReadSurah.arti,
+                                style: AppTheme.subtitleStyle,
+                              ),
+                            ],
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      SurahDetailPage(surah: lastReadSurah),
+                                ),
+                              );
+                              _updateLastReadSurah(lastReadSurah.nomor);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.buttonColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: const BorderSide(
+                                  color: Colors.black,
+                                  width: 2,
+                                ),
+                              ),
+                              foregroundColor: Colors.black,
                             ),
+                            child: Text('Continue',
+                                style: AppTheme.buttonTextStyle),
                           ),
                         ],
                       ),
-                    );
-                  },
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        cacheExtent: 1000,
+                        itemCount: surahList.length,
+                        itemBuilder: (context, index) {
+                          final surah = surahList[index];
+                          return Container(
+                            margin: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border(
+                                left: BorderSide(color: Colors.black, width: 3),
+                                right: BorderSide(color: Colors.black, width: 7),
+                                top: BorderSide(color: Colors.black, width: 3),
+                                bottom: BorderSide(color: Colors.black, width: 7),
+                              ),
+                              color: AppTheme.cardColor,
+                            ),
+                            child: Column(
+                              children: [
+                                Text(surah.namaLatin, style: AppTheme.titleStyle),
+                                Text(surah.arti, style: AppTheme.subtitleStyle),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              SurahDetailPage(surah: surah),
+                                        ),
+                                      );
+                                      _updateLastReadSurah(surah.nomor);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.buttonColor,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                        side: BorderSide(
+                                          color: Colors.black,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      foregroundColor: Colors.black,
+                                    ),
+                                    child: Text('Baca Surah',
+                                        style: AppTheme.buttonTextStyle),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 );
               }
               return const Center(child: Text('No data available'));
