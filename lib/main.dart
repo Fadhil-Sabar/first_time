@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AppTheme {
   static const Color background = Color(0xFFFFFBEE);
-  static const Color cardColor = Color(0xFF16C47F);
+  static const Color cardColor = Color.fromRGBO(22, 196, 127, 0.8);
   static const Color buttonColor = Color(0xFFEB5A3C);
   static const TextStyle titleStyle = TextStyle(
     fontSize: 20,
@@ -265,7 +265,6 @@ class _MainAppState extends State<MainApp> {
     setState(() {
       lastReadSurahNomor = nomor;
     });
-    debugPrint('Last read surah updated to: $nomor');
   }
 
   _onSearchChanged(String query) {
@@ -422,7 +421,7 @@ class _MainAppState extends State<MainApp> {
                               ),
                               foregroundColor: Colors.black,
                             ),
-                            child: Text('Continue',
+                            child: Text('Lanjutkan',
                                 style: AppTheme.buttonTextStyle),
                           ),
                         ],
@@ -509,12 +508,65 @@ class SurahDetailPage extends StatefulWidget {
 class _SurahDetailPageState extends State<SurahDetailPage> {
   late Future<SurahDetail> futureSurahDetail;
   int fontSizeArab = AppTheme.fontArabStyle.fontSize!.toInt();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     futureSurahDetail = fetchListSurahDetail(widget.surah.nomor);
+
+    _scrollController.addListener(_saveScrollPosition);
+    
+    // Load saved position after build is complete
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadScrollPosition();
+    });
   }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_saveScrollPosition);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // Alternative approach using a different timing method
+  void _loadScrollPosition() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'scroll_position_${widget.surah.nomor}';
+    final savedPosition = prefs.getDouble(key);
+    
+    if (savedPosition != null) {
+      // Store value for use after build completes
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Add a small delay to ensure rendering is complete
+        Future.delayed(Duration(milliseconds: 500), () {
+          if (_scrollController.hasClients) {
+            try {
+              _scrollController.animateTo(
+                savedPosition,
+                duration: Duration(milliseconds: 1000),
+                curve: Curves.easeInOut
+              );
+            } catch (e) {
+              debugPrint('Error scrolling: $e');
+            }
+          }
+        });
+      });
+    }
+  }
+
+  // Save scroll position
+  void _saveScrollPosition() {
+    if (_scrollController.hasClients) {
+      SharedPreferences.getInstance().then((prefs) {
+        String key = 'scroll_position_${widget.surah.nomor}';
+        prefs.setDouble(key, _scrollController.offset);
+      });
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -611,6 +663,7 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
               } else if (snapshot.hasData) {
                 final surahDetail = snapshot.data!;
                 return ListView.builder(
+                  controller: _scrollController,
                   itemCount: surahDetail.ayat.length,
                   itemBuilder: (context, index) {
                     final ayat = surahDetail.ayat[index];
@@ -668,6 +721,7 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                                 ayat.teksLatin,
                                 style: AppTheme.fontLatinStyle,
                               ),
+                            const SizedBox(height: 20),
                               Text(ayat.teksIndonesia,
                                   style: AppTheme.subtitleStyle),
                             ],
