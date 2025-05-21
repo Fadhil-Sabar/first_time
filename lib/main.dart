@@ -255,7 +255,8 @@ class _MainAppState extends State<MainApp> {
   Future<void> _loadLastReadSurah() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      lastReadSurahNomor = prefs.getInt('lastReadSurahNomor') ?? 1; // Default to 1
+      lastReadSurahNomor =
+          prefs.getInt('lastReadSurahNomor') ?? 1; // Default to 1
     });
   }
 
@@ -337,9 +338,8 @@ class _MainAppState extends State<MainApp> {
                   }
                 });
               },
-              tooltip: !isSearching || searchQuery.isNotEmpty
-                  ? 'Search'
-                  : 'Close',
+              tooltip:
+                  !isSearching || searchQuery.isNotEmpty ? 'Search' : 'Close',
             ),
           ],
         ),
@@ -356,10 +356,21 @@ class _MainAppState extends State<MainApp> {
                 return Center(child: Text('Error: ${snapshot.error}'));
               } else if (snapshot.hasData) {
                 final surahList = snapshot.data!;
-                final lastReadSurah = surahList.firstWhere(
-                  (surah) => surah.nomor == lastReadSurahNomor,
-                  orElse: () => surahList[0],
-                );
+                Surah lastReadSurah = Surah(
+                    nomor: 0,
+                    nama: '',
+                    namaLatin: '',
+                    jumlahAyat: 0,
+                    tempatTurun: '',
+                    arti: '',
+                    deskripsi: '',
+                    audioFull: {});
+                if (lastReadSurahNomor > 0 && surahList.isNotEmpty) {
+                  lastReadSurah = surahList.firstWhere(
+                    (surah) => surah.nomor == lastReadSurahNomor,
+                    orElse: () => lastReadSurah,
+                  );
+                }
                 return Column(
                   children: [
                     Container(
@@ -382,7 +393,7 @@ class _MainAppState extends State<MainApp> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Last Read',
+                                'Terakhir Dibaca',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -433,52 +444,68 @@ class _MainAppState extends State<MainApp> {
                         itemCount: surahList.length,
                         itemBuilder: (context, index) {
                           final surah = surahList[index];
-                          return Container(
-                            margin: const EdgeInsets.all(10),
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border(
-                                left: BorderSide(color: Colors.black, width: 3),
-                                right: BorderSide(color: Colors.black, width: 7),
-                                top: BorderSide(color: Colors.black, width: 3),
-                                bottom: BorderSide(color: Colors.black, width: 7),
-                              ),
-                              color: AppTheme.cardColor,
-                            ),
-                            child: Column(
-                              children: [
-                                Text(surah.namaLatin, style: AppTheme.titleStyle),
-                                Text(surah.arti, style: AppTheme.subtitleStyle),
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              SurahDetailPage(surah: surah),
-                                        ),
-                                      );
-                                      _updateLastReadSurah(surah.nomor);
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.buttonColor,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        side: BorderSide(
-                                          color: Colors.black,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      foregroundColor: Colors.black,
-                                    ),
-                                    child: Text('Baca Surah',
-                                        style: AppTheme.buttonTextStyle),
-                                  ),
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      SurahDetailPage(surah: surah),
                                 ),
-                              ],
+                              );
+                              _updateLastReadSurah(surah.nomor);
+                              debugPrint('tap');
+                            },
+                            child: Hero(
+                              tag: 'surah-${surah.nomor}',
+                              child: Container(
+                                margin: const EdgeInsets.all(10),
+                                padding: const EdgeInsets.only(
+                                    left: 20, right: 20, bottom: 20, top: 10),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border(
+                                    left:
+                                        BorderSide(color: Colors.black, width: 3),
+                                    right:
+                                        BorderSide(color: Colors.black, width: 7),
+                                    top:
+                                        BorderSide(color: Colors.black, width: 3),
+                                    bottom:
+                                        BorderSide(color: Colors.black, width: 7),
+                                  ),
+                                  color: AppTheme.cardColor,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(surah.namaLatin,
+                                            style: AppTheme.titleStyle),
+                                        Text(
+                                          surah.nama,
+                                          style: AppTheme.fontArabStyle,
+                                        )
+                                      ],
+                                    ),
+                                    Text(surah.arti,
+                                        style: AppTheme.subtitleStyle),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                            '${surah.tempatTurun} | ${surah.jumlahAyat} ayat',
+                                            style: AppTheme.subtitleStyle),
+                                        Icon(Icons.keyboard_arrow_right, color: AppTheme.buttonColor,)
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           );
                         },
@@ -516,7 +543,7 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
     futureSurahDetail = fetchListSurahDetail(widget.surah.nomor);
 
     _scrollController.addListener(_saveScrollPosition);
-    
+
     // Load saved position after build is complete
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadScrollPosition();
@@ -535,7 +562,7 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
     final prefs = await SharedPreferences.getInstance();
     final key = 'scroll_position_${widget.surah.nomor}';
     final savedPosition = prefs.getDouble(key);
-    
+
     if (savedPosition != null) {
       // Store value for use after build completes
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -543,11 +570,9 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
         Future.delayed(Duration(milliseconds: 500), () {
           if (_scrollController.hasClients) {
             try {
-              _scrollController.animateTo(
-                savedPosition,
-                duration: Duration(milliseconds: 1000),
-                curve: Curves.easeInOut
-              );
+              _scrollController.animateTo(savedPosition,
+                  duration: Duration(milliseconds: 1000),
+                  curve: Curves.easeInOut);
             } catch (e) {
               debugPrint('Error scrolling: $e');
             }
@@ -566,7 +591,6 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
       });
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -621,7 +645,7 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                                   icon: const Icon(Icons.remove),
                                   onPressed: () {
                                     setState(() {
-                                      if(fontSizeArab > 20) {
+                                      if (fontSizeArab > 20) {
                                         fontSizeArab--;
                                       }
                                     });
@@ -633,7 +657,7 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                                   icon: const Icon(Icons.add),
                                   onPressed: () {
                                     setState(() {
-                                      if(fontSizeArab < 40) {
+                                      if (fontSizeArab < 40) {
                                         fontSizeArab++;
                                       }
                                     });
@@ -662,74 +686,81 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                 return Text('Error: ${snapshot.error}');
               } else if (snapshot.hasData) {
                 final surahDetail = snapshot.data!;
-                return ListView.builder(
-                  controller: _scrollController,
-                  itemCount: surahDetail.ayat.length,
-                  itemBuilder: (context, index) {
-                    final ayat = surahDetail.ayat[index];
-                    return Container(
-                      margin: const EdgeInsets.all(10),
-                      padding: const EdgeInsets.only(
-                          left: 20, right: 20, top: 30, bottom: 20),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border(
-                          left: BorderSide(color: Colors.black, width: 3),
-                          right: BorderSide(color: Colors.black, width: 7),
-                          top: BorderSide(color: Colors.black, width: 3),
-                          bottom: BorderSide(color: Colors.black, width: 7),
-                        ),
-                        color: AppTheme.cardColor,
-                      ),
-                      constraints: const BoxConstraints(
-                        minHeight: 150,
-                        maxHeight: double.infinity,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('${ayat.nomorAyat.toString()}.',
-                                  style: AppTheme.titleStyle),
-                              const SizedBox(width: 10),
-                              Flexible(
-                                child: Text(
-                                  ayat.teksArab,
-                                  style: AppTheme.fontArabStyle.copyWith(
-                                    fontSize: fontSizeArab.toDouble(),
-                                  ),
-                                  textDirection: TextDirection
-                                      .rtl, // Ensure RTL for Arabic
-                                  softWrap:
-                                      true, // Allow wrapping (default, but explicit)
-                                  maxLines: 10, // Allow multiple lines
-                                  overflow: TextOverflow
-                                      .ellipsis, // Show ellipsis if still overflows
+                return Column(
+                  children: [
+                    const SizedBox(height: 20),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        itemCount: surahDetail.ayat.length,
+                        itemBuilder: (context, index) {
+                          final ayat = surahDetail.ayat[index];
+                          return Container(
+                            margin: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.only(
+                                left: 20, right: 20, top: 30, bottom: 20),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border(
+                                left: BorderSide(color: Colors.black, width: 3),
+                                right: BorderSide(color: Colors.black, width: 7),
+                                top: BorderSide(color: Colors.black, width: 3),
+                                bottom: BorderSide(color: Colors.black, width: 7),
+                              ),
+                              color: AppTheme.cardColor,
+                            ),
+                            constraints: const BoxConstraints(
+                              minHeight: 150,
+                              maxHeight: double.infinity,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('${ayat.nomorAyat.toString()}.',
+                                        style: AppTheme.titleStyle),
+                                    const SizedBox(width: 10),
+                                    Flexible(
+                                      child: Text(
+                                        ayat.teksArab,
+                                        style: AppTheme.fontArabStyle.copyWith(
+                                          fontSize: fontSizeArab.toDouble(),
+                                        ),
+                                        textDirection: TextDirection
+                                            .rtl, // Ensure RTL for Arabic
+                                        softWrap:
+                                            true, // Allow wrapping (default, but explicit)
+                                        maxLines: 10, // Allow multiple lines
+                                        overflow: TextOverflow
+                                            .ellipsis, // Show ellipsis if still overflows
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                ayat.teksLatin,
-                                style: AppTheme.fontLatinStyle,
-                              ),
-                            const SizedBox(height: 20),
-                              Text(ayat.teksIndonesia,
-                                  style: AppTheme.subtitleStyle),
-                            ],
-                          ),
-                        ],
+                                const SizedBox(height: 20),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      ayat.teksLatin,
+                                      style: AppTheme.fontLatinStyle,
+                                    ),
+                                    const SizedBox(height: 20),
+                                    Text(ayat.teksIndonesia,
+                                        style: AppTheme.subtitleStyle),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 );
               }
               return const Text('No data available');
