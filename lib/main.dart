@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -371,153 +372,192 @@ class _MainAppState extends State<MainApp> {
                     orElse: () => lastReadSurah,
                   );
                 }
-                return Column(
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.all(10),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: const Border(
-                          left: BorderSide(color: Colors.black, width: 3),
-                          right: BorderSide(color: Colors.black, width: 7),
-                          top: BorderSide(color: Colors.black, width: 3),
-                          bottom: BorderSide(color: Colors.black, width: 7),
-                        ),
-                        color: AppTheme.cardColor,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                return ListView.builder(
+                  cacheExtent: 1000,
+                  itemCount: surahList.length,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return Column(
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Terakhir Dibaca',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black54,
-                                ),
+                          Container(
+                            margin: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              border: const Border(
+                                left: BorderSide(color: Colors.black, width: 3),
+                                right:
+                                    BorderSide(color: Colors.black, width: 7),
+                                top: BorderSide(color: Colors.black, width: 3),
+                                bottom:
+                                    BorderSide(color: Colors.black, width: 7),
                               ),
-                              Text(
-                                lastReadSurah.namaLatin,
-                                style: AppTheme.titleStyle,
-                              ),
-                              Text(
-                                lastReadSurah.arti,
-                                style: AppTheme.subtitleStyle,
-                              ),
-                            ],
-                          ),
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      SurahDetailPage(surah: lastReadSurah),
-                                ),
-                              );
-                              _updateLastReadSurah(lastReadSurah.nomor);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.buttonColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                side: const BorderSide(
-                                  color: Colors.black,
-                                  width: 2,
-                                ),
-                              ),
-                              foregroundColor: Colors.black,
+                              color: AppTheme.cardColor,
                             ),
-                            child: Text('Lanjutkan',
-                                style: AppTheme.buttonTextStyle),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        cacheExtent: 1000,
-                        itemCount: surahList.length,
-                        itemBuilder: (context, index) {
-                          final surah = surahList[index];
-                          return GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      SurahDetailPage(surah: surah),
-                                ),
-                              );
-                              _updateLastReadSurah(surah.nomor);
-                              debugPrint('tap');
-                            },
-                            child: Hero(
-                              tag: 'surah-${surah.nomor}',
-                              child: Container(
-                                margin: const EdgeInsets.all(10),
-                                padding: const EdgeInsets.only(
-                                    left: 20, right: 20, bottom: 20, top: 10),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border(
-                                    left:
-                                        BorderSide(color: Colors.black, width: 3),
-                                    right:
-                                        BorderSide(color: Colors.black, width: 7),
-                                    top:
-                                        BorderSide(color: Colors.black, width: 3),
-                                    bottom:
-                                        BorderSide(color: Colors.black, width: 7),
-                                  ),
-                                  color: AppTheme.cardColor,
-                                ),
-                                child: Column(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(surah.namaLatin,
-                                            style: AppTheme.titleStyle),
-                                        Text(
-                                          surah.nama,
-                                          style: AppTheme.fontArabStyle,
-                                        )
-                                      ],
+                                    const Text(
+                                      'Terakhir Dibaca',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black54,
+                                      ),
                                     ),
-                                    Text(surah.arti,
-                                        style: AppTheme.subtitleStyle),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                            '${surah.tempatTurun} | ${surah.jumlahAyat} ayat',
-                                            style: AppTheme.subtitleStyle),
-                                        Icon(Icons.keyboard_arrow_right, color: AppTheme.buttonColor,)
-                                      ],
+                                    Text(
+                                      lastReadSurah.namaLatin,
+                                      style: AppTheme.titleStyle,
+                                    ),
+                                    Text(
+                                      lastReadSurah.arti,
+                                      style: AppTheme.subtitleStyle,
                                     ),
                                   ],
                                 ),
-                              ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => SurahDetailPage(
+                                            surah: lastReadSurah),
+                                      ),
+                                    );
+                                    _updateLastReadSurah(lastReadSurah.nomor);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.buttonColor,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      side: const BorderSide(
+                                        color: Colors.black,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    foregroundColor: Colors.black,
+                                  ),
+                                  child: Text('Lanjutkan',
+                                      style: AppTheme.buttonTextStyle),
+                                ),
+                              ],
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                          ),
+                          Divider(
+                            height: 20,
+                            thickness: 3,
+                            indent: 11,
+                            endIndent: 11,
+                            color: Colors.black54,
+                          )
+                        ],
+                      );
+                    }
+                    final surah = surahList[index - 1];
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SurahDetailPage(surah: surah),
+                          ),
+                        );
+                        _updateLastReadSurah(surah.nomor);
+                        debugPrint('tap');
+                      },
+                      child: ContainerSurah(surah: surah),
+                    );
+                  },
                 );
               }
               return const Center(child: Text('No data available'));
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+class ContainerSurah extends StatelessWidget {
+  const ContainerSurah({
+    super.key,
+    required this.surah,
+    this.isDetail,
+  });
+
+  final Surah surah;
+  final bool? isDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(10),
+      padding:
+          const EdgeInsets.only(left: 20, right: 20, bottom: 20, top: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border(
+          left: BorderSide(color: Colors.black, width: 3),
+          right: BorderSide(color: Colors.black, width: 7),
+          top: BorderSide(color: Colors.black, width: 3),
+          bottom: BorderSide(color: Colors.black, width: 7),
+        ),
+        color: AppTheme.cardColor,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(surah.namaLatin, style: AppTheme.titleStyle),
+              Text(
+                surah.nama,
+                style: AppTheme.fontArabStyle,
+              )
+            ],
+          ),
+          Text(surah.arti, style: AppTheme.subtitleStyle),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('${surah.tempatTurun} | ${surah.jumlahAyat} ayat',
+                  style: AppTheme.subtitleStyle),
+              isDetail != null && isDetail == true
+                  ? Container()
+                  : Icon(
+                      Icons.keyboard_arrow_right,
+                      color: AppTheme.buttonColor,
+                    )
+            ],
+          ),
+          isDetail != null && isDetail == true
+              ? Row(
+                  children: [
+                    Flexible(
+                        child: Transform.translate(
+                      offset: const Offset(-8, 0),
+                      child: Html(
+                        data: '<div> ${surah.deskripsi} </div>',
+                        style: {
+                          "div": Style(
+                              textAlign: TextAlign.justify,
+                              margin: Margins.zero,
+                              fontSize: FontSize(
+                                  AppTheme.subtitleStyle.fontSize ?? 0),
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black54),
+                        },
+                      ),
+                    ))
+                  ],
+                )
+              : Container(),
+        ],
       ),
     );
   }
@@ -686,81 +726,92 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                 return Text('Error: ${snapshot.error}');
               } else if (snapshot.hasData) {
                 final surahDetail = snapshot.data!;
-                return Column(
-                  children: [
-                    const SizedBox(height: 20),
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        itemCount: surahDetail.ayat.length,
-                        itemBuilder: (context, index) {
-                          final ayat = surahDetail.ayat[index];
-                          return Container(
-                            margin: const EdgeInsets.all(10),
-                            padding: const EdgeInsets.only(
-                                left: 20, right: 20, top: 30, bottom: 20),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border(
-                                left: BorderSide(color: Colors.black, width: 3),
-                                right: BorderSide(color: Colors.black, width: 7),
-                                top: BorderSide(color: Colors.black, width: 3),
-                                bottom: BorderSide(color: Colors.black, width: 7),
-                              ),
-                              color: AppTheme.cardColor,
-                            ),
-                            constraints: const BoxConstraints(
-                              minHeight: 150,
-                              maxHeight: double.infinity,
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text('${ayat.nomorAyat.toString()}.',
-                                        style: AppTheme.titleStyle),
-                                    const SizedBox(width: 10),
-                                    Flexible(
-                                      child: Text(
-                                        ayat.teksArab,
-                                        style: AppTheme.fontArabStyle.copyWith(
-                                          fontSize: fontSizeArab.toDouble(),
-                                        ),
-                                        textDirection: TextDirection
-                                            .rtl, // Ensure RTL for Arabic
-                                        softWrap:
-                                            true, // Allow wrapping (default, but explicit)
-                                        maxLines: 10, // Allow multiple lines
-                                        overflow: TextOverflow
-                                            .ellipsis, // Show ellipsis if still overflows
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 20),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      ayat.teksLatin,
-                                      style: AppTheme.fontLatinStyle,
-                                    ),
-                                    const SizedBox(height: 20),
-                                    Text(ayat.teksIndonesia,
-                                        style: AppTheme.subtitleStyle),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                return ListView.builder(
+                  controller: _scrollController,
+                  itemCount: surahDetail.ayat.length,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return Column(
+                        children: [
+                          ContainerSurah(
+                            surah: widget.surah,
+                            isDetail: true,
+                          ),
+                          Divider(
+                            height: 20,
+                            thickness: 3,
+                            indent: 12,
+                            endIndent: 12,
+                            color: Colors.black54,
+                          )
+                        ],
+                      );
+                    }
+
+                    final ayat = surahDetail.ayat[index - 1];
+                    return Container(
+                      margin: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.only(
+                          left: 20, right: 20, top: 30, bottom: 20),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border(
+                          left: BorderSide(color: Colors.black, width: 3),
+                          right: BorderSide(color: Colors.black, width: 7),
+                          top: BorderSide(color: Colors.black, width: 3),
+                          bottom: BorderSide(color: Colors.black, width: 7),
+                        ),
+                        color: AppTheme.cardColor,
                       ),
-                    ),
-                  ],
+                      constraints: const BoxConstraints(
+                        minHeight: 150,
+                        maxHeight: double.infinity,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${ayat.nomorAyat.toString()}.',
+                                  style: AppTheme.titleStyle),
+                              const SizedBox(width: 10),
+                              Flexible(
+                                child: Text(
+                                  ayat.teksArab,
+                                  style: AppTheme.fontArabStyle.copyWith(
+                                    fontSize: fontSizeArab.toDouble(),
+                                  ),
+                                  textDirection: TextDirection
+                                      .rtl, // Ensure RTL for Arabic
+                                  softWrap:
+                                      true, // Allow wrapping (default, but explicit)
+                                  maxLines: 10, // Allow multiple lines
+                                  overflow: TextOverflow
+                                      .ellipsis, // Show ellipsis if still overflows
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                ayat.teksLatin,
+                                style: AppTheme.fontLatinStyle,
+                              ),
+                              const SizedBox(height: 20),
+                              Text(ayat.teksIndonesia,
+                                  style: AppTheme.subtitleStyle),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 );
               }
               return const Text('No data available');
