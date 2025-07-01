@@ -252,6 +252,7 @@ class _MainAppState extends State<MainApp> {
   String searchQuery = '';
   Future<List<Surah>> filteredSurahList = Future.value([]);
   int lastReadSurahNomor = 1;
+  final _searchController = TextEditingController();
 
   Future<void> _loadLastReadSurah() async {
     final prefs = await SharedPreferences.getInstance();
@@ -277,7 +278,8 @@ class _MainAppState extends State<MainApp> {
         filteredSurahList = futureSurah.then((surahList) {
           return surahList
               .where((surah) =>
-                  surah.namaLatin.toLowerCase().contains(query.toLowerCase()))
+                surah.namaLatin.toLowerCase().contains(query.toLowerCase()) || 
+                surah.nomor.toString().contains(query.toLowerCase()))
               .toList();
         });
       });
@@ -307,17 +309,13 @@ class _MainAppState extends State<MainApp> {
             duration: const Duration(milliseconds: 250),
             child: isSearching || searchQuery.isNotEmpty
                 ? TextField(
+                    controller: _searchController,
                     autofocus: true,
                     decoration: const InputDecoration(
                       hintText: 'Search...',
                       border: InputBorder.none,
                     ),
                     style: const TextStyle(color: Colors.black),
-                    onTapOutside: (_) {
-                      setState(() {
-                        isSearching = false;
-                      });
-                    },
                     onChanged: _onSearchChanged,
                   )
                 : const Text('Quran Simple'),
@@ -326,21 +324,22 @@ class _MainAppState extends State<MainApp> {
           backgroundColor: AppTheme.background,
           actions: [
             IconButton(
-              icon: Icon(!isSearching || searchQuery.isNotEmpty
+              icon: Icon(!isSearching
                   ? Icons.search
                   : Icons.close),
               onPressed: () {
-                // Implement search functionality here
                 setState(() {
-                  isSearching = !isSearching;
-
-                  if (isSearching) {
+                  if(isSearching){
+                    isSearching = false;
                     searchQuery = '';
+                    _searchController.clear();
+                  }else{
+                    isSearching = true;
                   }
                 });
               },
               tooltip:
-                  !isSearching || searchQuery.isNotEmpty ? 'Search' : 'Close',
+                  !isSearching ? 'Search' : 'Close',
             ),
           ],
         ),
@@ -486,21 +485,18 @@ class ContainerSurah extends StatelessWidget {
   const ContainerSurah({
     super.key,
     required this.surah,
-    this.isDetail,
   });
 
   final Surah surah;
-  final bool? isDetail;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.all(10),
-      padding:
-          const EdgeInsets.only(left: 20, right: 20, bottom: 20, top: 10),
+      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 20, top: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        border: Border(
+        border: const Border(
           left: BorderSide(color: Colors.black, width: 3),
           right: BorderSide(color: Colors.black, width: 7),
           top: BorderSide(color: Colors.black, width: 3),
@@ -514,7 +510,7 @@ class ContainerSurah extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(surah.namaLatin, style: AppTheme.titleStyle),
+              Text('${surah.nomor}. ${surah.namaLatin}', style: AppTheme.titleStyle),
               Text(
                 surah.nama,
                 style: AppTheme.fontArabStyle,
@@ -527,36 +523,85 @@ class ContainerSurah extends StatelessWidget {
             children: [
               Text('${surah.tempatTurun} | ${surah.jumlahAyat} ayat',
                   style: AppTheme.subtitleStyle),
-              isDetail != null && isDetail == true
-                  ? Container()
-                  : Icon(
-                      Icons.keyboard_arrow_right,
-                      color: AppTheme.buttonColor,
-                    )
+              Icon(
+                Icons.keyboard_arrow_right,
+                color: AppTheme.buttonColor,
+              )
             ],
           ),
-          isDetail != null && isDetail == true
-              ? Row(
-                  children: [
-                    Flexible(
-                        child: Transform.translate(
-                      offset: const Offset(-8, 0),
-                      child: Html(
-                        data: '<div> ${surah.deskripsi} </div>',
-                        style: {
-                          "div": Style(
-                              textAlign: TextAlign.justify,
-                              margin: Margins.zero,
-                              fontSize: FontSize(
-                                  AppTheme.subtitleStyle.fontSize ?? 0),
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black54),
-                        },
-                      ),
-                    ))
-                  ],
+        ],
+      ),
+    );
+  }
+}
+
+class ContainerSurahDetail extends StatelessWidget {
+  const ContainerSurahDetail({
+    super.key,
+    required this.surah,
+  });
+
+  final Surah surah;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: const Border(
+          left: BorderSide(color: Colors.black, width: 3),
+          right: BorderSide(color: Colors.black, width: 7),
+          top: BorderSide(color: Colors.black, width: 3),
+          bottom: BorderSide(color: Colors.black, width: 7),
+        ),
+        color: AppTheme.cardColor,
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.only(left: 20, right: 20, top: 0),
+        childrenPadding: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
+        expandedAlignment: Alignment.topLeft,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(surah.namaLatin, style: AppTheme.titleStyle),
+                Text(
+                  surah.nama,
+                  style: AppTheme.fontArabStyle,
                 )
-              : Container(),
+              ],
+            ),
+          ],
+        ),
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
+              Text(surah.arti, style: AppTheme.subtitleStyle),
+              const SizedBox(height: 8),
+              Text('${surah.tempatTurun} | ${surah.jumlahAyat} ayat',
+                  style: AppTheme.subtitleStyle),
+              Transform.translate(
+                offset: const Offset(-8, 0),
+                child: Html(
+                  data: '<div> ${surah.deskripsi} </div>',
+                  style: {
+                    "div": Style(
+                        textAlign: TextAlign.justify,
+                        margin: Margins.zero,
+                        fontSize: FontSize(
+                            AppTheme.subtitleStyle.fontSize ?? 0),
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black54),
+                  },
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -728,14 +773,13 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                 final surahDetail = snapshot.data!;
                 return ListView.builder(
                   controller: _scrollController,
-                  itemCount: surahDetail.ayat.length,
+                  itemCount: surahDetail.jumlahAyat + 1,
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       return Column(
                         children: [
-                          ContainerSurah(
+                          ContainerSurahDetail(
                             surah: widget.surah,
-                            isDetail: true,
                           ),
                           Divider(
                             height: 20,
