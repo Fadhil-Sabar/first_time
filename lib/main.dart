@@ -276,11 +276,12 @@ class _MainAppState extends State<MainApp> {
       setState(() {
         searchQuery = query;
         filteredSurahList = futureSurah.then((surahList) {
-          return surahList
-              .where((surah) =>
-                surah.namaLatin.toLowerCase().contains(query.toLowerCase()) || 
-                surah.nomor.toString().contains(query.toLowerCase()))
-              .toList();
+          return surahList.where((surah) {
+            return surah.namaLatin
+                    .toLowerCase()
+                    .contains(query.toLowerCase()) ||
+                surah.nomor.toString().contains(query.toLowerCase());
+          }).toList();
         });
       });
     });
@@ -324,22 +325,19 @@ class _MainAppState extends State<MainApp> {
           backgroundColor: AppTheme.background,
           actions: [
             IconButton(
-              icon: Icon(!isSearching
-                  ? Icons.search
-                  : Icons.close),
+              icon: Icon(!isSearching ? Icons.search : Icons.close),
               onPressed: () {
                 setState(() {
-                  if(isSearching){
+                  if (isSearching) {
                     isSearching = false;
                     searchQuery = '';
                     _searchController.clear();
-                  }else{
+                  } else {
                     isSearching = true;
                   }
                 });
               },
-              tooltip:
-                  !isSearching ? 'Search' : 'Close',
+              tooltip: !isSearching ? 'Search' : 'Close',
             ),
           ],
         ),
@@ -356,6 +354,7 @@ class _MainAppState extends State<MainApp> {
                 return Center(child: Text('Error: ${snapshot.error}'));
               } else if (snapshot.hasData) {
                 final surahList = snapshot.data!;
+                debugPrint('${surahList.toString()} - ini surah list');
                 Surah lastReadSurah = Surah(
                     nomor: 0,
                     nama: '',
@@ -373,7 +372,7 @@ class _MainAppState extends State<MainApp> {
                 }
                 return ListView.builder(
                   cacheExtent: 1000,
-                  itemCount: surahList.length,
+                  itemCount: surahList.length + 1,
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       return Column(
@@ -393,57 +392,64 @@ class _MainAppState extends State<MainApp> {
                               ),
                               color: AppTheme.cardColor,
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Terakhir Dibaca',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.black54,
+                            child: !(isSearching || searchQuery.isNotEmpty)
+                                ? Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Terakhir Dibaca',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.black54,
+                                            ),
+                                          ),
+                                          Text(
+                                            lastReadSurah.namaLatin,
+                                            style: AppTheme.titleStyle,
+                                          ),
+                                          Text(
+                                            lastReadSurah.arti,
+                                            style: AppTheme.subtitleStyle,
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                    Text(
-                                      lastReadSurah.namaLatin,
-                                      style: AppTheme.titleStyle,
-                                    ),
-                                    Text(
-                                      lastReadSurah.arti,
-                                      style: AppTheme.subtitleStyle,
-                                    ),
-                                  ],
-                                ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => SurahDetailPage(
-                                            surah: lastReadSurah),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  SurahDetailPage(
+                                                      surah: lastReadSurah),
+                                            ),
+                                          );
+                                          _updateLastReadSurah(
+                                              lastReadSurah.nomor);
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppTheme.buttonColor,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                            side: const BorderSide(
+                                              color: Colors.black,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          foregroundColor: Colors.black,
+                                        ),
+                                        child: Text('Lanjutkan',
+                                            style: AppTheme.buttonTextStyle),
                                       ),
-                                    );
-                                    _updateLastReadSurah(lastReadSurah.nomor);
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.buttonColor,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                      side: const BorderSide(
-                                        color: Colors.black,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    foregroundColor: Colors.black,
-                                  ),
-                                  child: Text('Lanjutkan',
-                                      style: AppTheme.buttonTextStyle),
-                                ),
-                              ],
-                            ),
+                                    ],
+                                  )
+                                : null,
                           ),
                           Divider(
                             height: 20,
@@ -510,7 +516,8 @@ class ContainerSurah extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('${surah.nomor}. ${surah.namaLatin}', style: AppTheme.titleStyle),
+              Text('${surah.nomor}. ${surah.namaLatin}',
+                  style: AppTheme.titleStyle),
               Text(
                 surah.nama,
                 style: AppTheme.fontArabStyle,
@@ -593,8 +600,8 @@ class ContainerSurahDetail extends StatelessWidget {
                     "div": Style(
                         textAlign: TextAlign.justify,
                         margin: Margins.zero,
-                        fontSize: FontSize(
-                            AppTheme.subtitleStyle.fontSize ?? 0),
+                        fontSize:
+                            FontSize(AppTheme.subtitleStyle.fontSize ?? 0),
                         fontWeight: FontWeight.w600,
                         color: Colors.black54),
                   },
