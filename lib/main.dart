@@ -245,6 +245,16 @@ class MainApp extends StatefulWidget {
   State<MainApp> createState() => _MainAppState();
 }
 
+Future<int> getLastReadSurah() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getInt('lastReadSurahNomor') ?? 1;
+}
+
+void updateLastReadSurah(int nomor) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setInt('lastReadSurahNomor', nomor);
+}
+
 class _MainAppState extends State<MainApp> {
   late Future<List<Surah>> futureSurah;
   bool isSearching = false;
@@ -253,22 +263,6 @@ class _MainAppState extends State<MainApp> {
   Future<List<Surah>> filteredSurahList = Future.value([]);
   int lastReadSurahNomor = 1;
   final _searchController = TextEditingController();
-
-  Future<void> _loadLastReadSurah() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      lastReadSurahNomor =
-          prefs.getInt('lastReadSurahNomor') ?? 1; // Default to 1
-    });
-  }
-
-  void _updateLastReadSurah(int nomor) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('lastReadSurahNomor', nomor);
-    setState(() {
-      lastReadSurahNomor = nomor;
-    });
-  }
 
   _onSearchChanged(String query) {
     if (_searchTimer?.isActive ?? false) _searchTimer!.cancel();
@@ -297,7 +291,13 @@ class _MainAppState extends State<MainApp> {
   void initState() {
     super.initState();
     futureSurah = fetchListSurah();
-    _loadLastReadSurah();
+    getLastReadSurah().then(
+      (value) {
+        setState(() {
+          lastReadSurahNomor = value;
+        });
+      },
+    );
   }
 
   @override
@@ -426,11 +426,23 @@ class _MainAppState extends State<MainApp> {
                                             MaterialPageRoute(
                                               builder: (context) =>
                                                   SurahDetailPage(
-                                                      surah: lastReadSurah),
+                                                      surah: SurahPrevNext(
+                                                nomor: lastReadSurah.nomor,
+                                                nama: lastReadSurah.nama,
+                                                namaLatin:
+                                                    lastReadSurah.namaLatin,
+                                                jumlahAyat:
+                                                    lastReadSurah.jumlahAyat,
+                                              )),
                                             ),
                                           );
-                                          _updateLastReadSurah(
+                                          updateLastReadSurah(
                                               lastReadSurah.nomor);
+                                          getLastReadSurah().then((value) {
+                                            setState(() {
+                                              lastReadSurahNomor = value;
+                                            });
+                                          });
                                         },
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: AppTheme.buttonColor,
@@ -467,10 +479,21 @@ class _MainAppState extends State<MainApp> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => SurahDetailPage(surah: surah),
+                            builder: (context) => SurahDetailPage(
+                                surah: SurahPrevNext(
+                              nomor: surah.nomor,
+                              nama: surah.nama,
+                              namaLatin: surah.namaLatin,
+                              jumlahAyat: surah.jumlahAyat,
+                            )),
                           ),
                         );
-                        _updateLastReadSurah(surah.nomor);
+                        updateLastReadSurah(surah.nomor);
+                        getLastReadSurah().then((value) {
+                          setState(() {
+                            lastReadSurahNomor = value;
+                          });
+                        });
                         debugPrint('tap');
                       },
                       child: ContainerSurah(surah: surah),
@@ -616,7 +639,7 @@ class ContainerSurahDetail extends StatelessWidget {
 }
 
 class SurahDetailPage extends StatefulWidget {
-  final Surah surah;
+  final SurahPrevNext surah;
 
   const SurahDetailPage({super.key, required this.surah});
 
@@ -628,18 +651,13 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
   late Future<SurahDetail> futureSurahDetail;
   int fontSizeArab = AppTheme.fontArabStyle.fontSize!.toInt();
   final ScrollController _scrollController = ScrollController();
+  bool _hasScrolledToSavedPosition = false; // Add this flag
 
   @override
   void initState() {
     super.initState();
     futureSurahDetail = fetchListSurahDetail(widget.surah.nomor);
-
     _scrollController.addListener(_saveScrollPosition);
-
-    // Load saved position after build is complete
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadScrollPosition();
-    });
   }
 
   @override
@@ -649,34 +667,42 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
     super.dispose();
   }
 
-  // Alternative approach using a different timing method
+  // Load scroll position - called only when data is ready
   void _loadScrollPosition() async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = 'scroll_position_${widget.surah.nomor}';
-    final savedPosition = prefs.getDouble(key);
+    if (_hasScrolledToSavedPosition) return; // Prevent multiple calls
 
-    if (savedPosition != null) {
-      // Store value for use after build completes
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Add a small delay to ensure rendering is complete
-        Future.delayed(Duration(milliseconds: 500), () {
-          if (_scrollController.hasClients) {
-            try {
-              _scrollController.animateTo(savedPosition,
-                  duration: Duration(milliseconds: 1000),
-                  curve: Curves.easeInOut);
-            } catch (e) {
-              debugPrint('Error scrolling: $e');
-            }
-          }
-        });
-      });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'scroll_position_${widget.surah.nomor}';
+      final savedPosition = prefs.getDouble(key);
+
+      if (savedPosition != null && _scrollController.hasClients) {
+        // Wait a bit more to ensure ListView is fully rendered
+        await Future.delayed(const Duration(milliseconds: 100));
+
+        if (_scrollController.hasClients) {
+          final maxScroll = _scrollController.position.maxScrollExtent;
+          final targetPosition =
+              savedPosition > maxScroll ? maxScroll : savedPosition;
+
+          await _scrollController.animateTo(
+            targetPosition,
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeInOut,
+          );
+
+          _hasScrolledToSavedPosition = true;
+          debugPrint('Scrolled to position: $targetPosition');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading scroll position: $e');
     }
   }
 
   // Save scroll position
   void _saveScrollPosition() {
-    if (_scrollController.hasClients) {
+    if (_scrollController.hasClients && _hasScrolledToSavedPosition) {
       SharedPreferences.getInstance().then((prefs) {
         String key = 'scroll_position_${widget.surah.nomor}';
         prefs.setDouble(key, _scrollController.offset);
@@ -778,97 +804,193 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                 return Text('Error: ${snapshot.error}');
               } else if (snapshot.hasData) {
                 final surahDetail = snapshot.data!;
-                return ListView.builder(
-                  controller: _scrollController,
-                  itemCount: surahDetail.jumlahAyat + 1,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return Column(
-                        children: [
-                          ContainerSurahDetail(
-                            surah: widget.surah,
-                          ),
-                          Divider(
-                            height: 20,
-                            thickness: 3,
-                            indent: 12,
-                            endIndent: 12,
-                            color: Colors.black54,
-                          )
-                        ],
-                      );
-                    }
 
-                    final ayat = surahDetail.ayat[index - 1];
-                    return Container(
-                      margin: const EdgeInsets.all(10),
-                      padding: const EdgeInsets.only(
-                          left: 20, right: 20, top: 30, bottom: 20),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border(
-                          left: BorderSide(color: Colors.black, width: 3),
-                          right: BorderSide(color: Colors.black, width: 7),
-                          top: BorderSide(color: Colors.black, width: 3),
-                          bottom: BorderSide(color: Colors.black, width: 7),
-                        ),
-                        color: AppTheme.cardColor,
-                      ),
-                      constraints: const BoxConstraints(
-                        minHeight: 150,
-                        maxHeight: double.infinity,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('${ayat.nomorAyat.toString()}.',
-                                  style: AppTheme.titleStyle),
-                              const SizedBox(width: 10),
-                              Flexible(
-                                child: Text(
-                                  ayat.teksArab,
-                                  style: AppTheme.fontArabStyle.copyWith(
-                                    fontSize: fontSizeArab.toDouble(),
-                                  ),
-                                  textDirection: TextDirection
-                                      .rtl, // Ensure RTL for Arabic
-                                  softWrap:
-                                      true, // Allow wrapping (default, but explicit)
-                                  maxLines: 10, // Allow multiple lines
-                                  overflow: TextOverflow
-                                      .ellipsis, // Show ellipsis if still overflows
-                                ),
-                              ),
-                            ],
+                // Load scroll position only when data is ready
+                if (!_hasScrolledToSavedPosition) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _loadScrollPosition();
+                  });
+                }
+
+                return ListView(
+                  controller: _scrollController,
+                  children: [
+                    // Header
+                    ContainerSurahDetail(surah: surahDetail),
+                    const Divider(
+                      height: 20,
+                      thickness: 3,
+                      indent: 12,
+                      endIndent: 12,
+                      color: Colors.black54,
+                    ),
+
+                    // Ayat items
+                    ...surahDetail.ayat.map((ayat) => Container(
+                          margin: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.only(
+                              left: 20, right: 20, top: 30, bottom: 20),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: const Border(
+                              left: BorderSide(color: Colors.black, width: 3),
+                              right: BorderSide(color: Colors.black, width: 7),
+                              top: BorderSide(color: Colors.black, width: 3),
+                              bottom: BorderSide(color: Colors.black, width: 7),
+                            ),
+                            color: AppTheme.cardColor,
                           ),
-                          const SizedBox(height: 20),
-                          Column(
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                ayat.teksLatin,
-                                style: AppTheme.fontLatinStyle,
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('${ayat.nomorAyat}.',
+                                      style: AppTheme.titleStyle),
+                                  const SizedBox(width: 10),
+                                  Flexible(
+                                    child: Text(
+                                      ayat.teksArab,
+                                      style: AppTheme.fontArabStyle.copyWith(
+                                        fontSize: fontSizeArab.toDouble(),
+                                      ),
+                                      textDirection: TextDirection.rtl,
+                                      softWrap: true,
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 20),
-                              Text(ayat.teksIndonesia,
-                                  style: AppTheme.subtitleStyle),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(ayat.teksLatin,
+                                      style: AppTheme.fontLatinStyle),
+                                  const SizedBox(height: 20),
+                                  Text(ayat.teksIndonesia,
+                                      style: AppTheme.subtitleStyle),
+                                ],
+                              ),
                             ],
                           ),
-                        ],
-                      ),
-                    );
-                  },
+                        )),
+
+                    // Footer with navigation buttons
+                    ButtonPrevNext(surahDetail: surahDetail),
+                  ],
                 );
               }
               return const Text('No data available');
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+class ButtonPrevNext extends StatelessWidget {
+  const ButtonPrevNext({
+    super.key,
+    required this.surahDetail,
+  });
+
+  final SurahDetail surahDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(10),
+      child: Row(
+        spacing: 5,
+        children: [
+          // ignore: unrelated_type_equality_checks
+          surahDetail.suratSebelumnya != false &&
+                  surahDetail.suratSebelumnya?.nomor != 0
+              ? Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: const Border(
+                        left: BorderSide(color: Colors.black, width: 3),
+                        right: BorderSide(color: Colors.black, width: 7),
+                        top: BorderSide(color: Colors.black, width: 3),
+                        bottom: BorderSide(color: Colors.black, width: 7),
+                      ),
+                      color: AppTheme.buttonColor,
+                    ),
+                    child: TextButton(
+                      onPressed: () {
+                        // Navigate to previous surah
+                        Navigator.replace(context,
+                            oldRoute: ModalRoute.of(context)!,
+                            newRoute: MaterialPageRoute(
+                                builder: (context) => SurahDetailPage(
+                                    surah: surahDetail.suratSebelumnya!)));
+
+                        updateLastReadSurah(surahDetail.nomor);
+                      },
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.arrow_back_ios_new_outlined,
+                              size: 15),
+                          const SizedBox(width: 8),
+                          Text('Surat Sebelumnya',
+                              style: AppTheme.buttonTextStyle
+                                  .copyWith(fontSize: 14)),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+          // ignore: unrelated_type_equality_checks
+          surahDetail.suratSelanjutnya != false &&
+                  surahDetail.suratSelanjutnya?.nomor != 0
+              ? Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: const Border(
+                        left: BorderSide(color: Colors.black, width: 3),
+                        right: BorderSide(color: Colors.black, width: 7),
+                        top: BorderSide(color: Colors.black, width: 3),
+                        bottom: BorderSide(color: Colors.black, width: 7),
+                      ),
+                      color: AppTheme.buttonColor,
+                    ),
+                    child: TextButton(
+                      // ignore: unrelated_type_equality_checks
+                      onPressed: () {
+                        // Navigate to next surah
+                        Navigator.replace(context,
+                            oldRoute: ModalRoute.of(context)!,
+                            newRoute: MaterialPageRoute(
+                                builder: (context) => SurahDetailPage(
+                                    surah: surahDetail.suratSelanjutnya!)));
+
+                        updateLastReadSurah(surahDetail.nomor);
+                      },
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('Surat Berikutnya',
+                              style: AppTheme.buttonTextStyle
+                                  .copyWith(fontSize: 14)),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.arrow_forward_ios_outlined,
+                              size: 15),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ],
       ),
     );
   }
