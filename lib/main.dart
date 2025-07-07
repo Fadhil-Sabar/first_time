@@ -3,9 +3,11 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:scroll_to_index/scroll_to_index.dart';
 
 class AppTheme {
   static const Color background = Color(0xFFFFFBEE);
@@ -650,13 +652,15 @@ class SurahDetailPage extends StatefulWidget {
 class _SurahDetailPageState extends State<SurahDetailPage> {
   late Future<SurahDetail> futureSurahDetail;
   int fontSizeArab = AppTheme.fontArabStyle.fontSize!.toInt();
-  final ScrollController _scrollController = ScrollController();
+  late AutoScrollController _scrollController;
   bool _hasScrolledToSavedPosition = false; // Add this flag
+  String searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     futureSurahDetail = fetchListSurahDetail(widget.surah.nomor);
+    _scrollController = AutoScrollController();
     _scrollController.addListener(_saveScrollPosition);
   }
 
@@ -710,13 +714,50 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
     }
   }
 
+  void _scrollToAyat(int ayatNumber) {
+    if (ayatNumber > 0) {
+      final targetIndex = ayatNumber > widget.surah.jumlahAyat
+          ? widget.surah.jumlahAyat + 1 // +1 for footer
+          : ayatNumber; // Ayat index in ListView`
+
+      _scrollController.scrollToIndex(
+        targetIndex,
+        preferPosition: AutoScrollPosition.begin,
+        duration: const Duration(milliseconds: 10),
+      );
+
+      debugPrint('Scrolling to ayat: $ayatNumber at index: $targetIndex');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.surah.namaLatin),
+        title: TextField(
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            hintText: 'Ayat',
+            border: InputBorder.none,
+          ),
+          onChanged: (value) {
+            // Handle search logic
+            setState(() {
+              searchQuery = value;
+            });
+          },
+        ),
         backgroundColor: AppTheme.background,
         actions: [
+          IconButton(
+              onPressed: () {
+                _scrollToAyat(int.tryParse(searchQuery) ?? 0);
+                debugPrint('Search for ayat: $searchQuery $_scrollController');
+              },
+              icon: const Icon(Icons.arrow_forward)),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
@@ -812,21 +853,48 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                   });
                 }
 
-                return ListView(
+                return ListView.builder(
                   controller: _scrollController,
-                  children: [
-                    // Header
-                    ContainerSurahDetail(surah: surahDetail),
-                    const Divider(
-                      height: 20,
-                      thickness: 3,
-                      indent: 12,
-                      endIndent: 12,
-                      color: Colors.black54,
-                    ),
+                  itemCount:
+                      surahDetail.ayat.length + 2, // +2 for header and footer
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      // Header
+                      return AutoScrollTag(
+                        key: ValueKey(index),
+                        controller: _scrollController,
+                        index: index,
+                        child: Column(
+                          children: [
+                            ContainerSurahDetail(surah: surahDetail),
+                            const Divider(
+                              height: 20,
+                              thickness: 3,
+                              indent: 12,
+                              endIndent: 12,
+                              color: Colors.black54,
+                            ),
+                          ],
+                        ),
+                      );
+                    } else if (index == surahDetail.ayat.length + 1) {
+                      // Footer
+                      return AutoScrollTag(
+                        key: ValueKey(index),
+                        controller: _scrollController,
+                        index: index,
+                        child: ButtonPrevNext(surahDetail: surahDetail),
+                      );
+                    } else {
+                      // Ayat items
+                      final ayatIndex = index - 1;
+                      final ayatValue = surahDetail.ayat[ayatIndex];
 
-                    // Ayat items
-                    ...surahDetail.ayat.map((ayat) => Container(
+                      return AutoScrollTag(
+                        key: ValueKey(index),
+                        controller: _scrollController,
+                        index: index,
+                        child: Container(
                           margin: const EdgeInsets.all(10),
                           padding: const EdgeInsets.only(
                               left: 20, right: 20, top: 30, bottom: 20),
@@ -848,12 +916,12 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('${ayat.nomorAyat}.',
+                                  Text('${ayatValue.nomorAyat}.',
                                       style: AppTheme.titleStyle),
                                   const SizedBox(width: 10),
                                   Flexible(
                                     child: Text(
-                                      ayat.teksArab,
+                                      ayatValue.teksArab,
                                       style: AppTheme.fontArabStyle.copyWith(
                                         fontSize: fontSizeArab.toDouble(),
                                       ),
@@ -867,20 +935,19 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(ayat.teksLatin,
+                                  Text(ayatValue.teksLatin,
                                       style: AppTheme.fontLatinStyle),
                                   const SizedBox(height: 20),
-                                  Text(ayat.teksIndonesia,
+                                  Text(ayatValue.teksIndonesia,
                                       style: AppTheme.subtitleStyle),
                                 ],
                               ),
                             ],
                           ),
-                        )),
-
-                    // Footer with navigation buttons
-                    ButtonPrevNext(surahDetail: surahDetail),
-                  ],
+                        ),
+                      );
+                    }
+                  },
                 );
               }
               return const Text('No data available');
