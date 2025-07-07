@@ -59,6 +59,9 @@ Future<SurahDetail> fetchListSurahDetail(int nomor) async {
   }
 }
 
+final RouteObserver<ModalRoute<void>> routeObserver =
+    RouteObserver<ModalRoute<void>>();
+
 class Surah {
   final int nomor;
   final String nama;
@@ -240,11 +243,24 @@ void main() {
   runApp(const MainApp());
 }
 
-class MainApp extends StatefulWidget {
+class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
   @override
-  State<MainApp> createState() => _MainAppState();
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      navigatorObservers: [routeObserver],
+      debugShowCheckedModeBanner: false,
+      home: const HomePage(),
+    );
+  }
+}
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
 }
 
 Future<int> getLastReadSurah() async {
@@ -254,10 +270,11 @@ Future<int> getLastReadSurah() async {
 
 void updateLastReadSurah(int nomor) async {
   final prefs = await SharedPreferences.getInstance();
+  debugPrint('Nomor $nomor');
   await prefs.setInt('lastReadSurahNomor', nomor);
 }
 
-class _MainAppState extends State<MainApp> {
+class _HomePageState extends State<HomePage> with RouteAware {
   late Future<List<Surah>> futureSurah;
   bool isSearching = false;
   Timer? _searchTimer;
@@ -283,9 +300,22 @@ class _MainAppState extends State<MainApp> {
     });
   }
 
+  _fetchLastReadSurah() async {
+    getLastReadSurah().then(
+      (value) {
+        if (mounted) {
+          setState(() {
+            lastReadSurahNomor = value;
+          });
+        }
+      },
+    );
+  }
+
   @override
   void dispose() {
     _searchTimer?.cancel();
+    routeObserver.unsubscribe(this);
     super.dispose();
   }
 
@@ -293,219 +323,221 @@ class _MainAppState extends State<MainApp> {
   void initState() {
     super.initState();
     futureSurah = fetchListSurah();
-    getLastReadSurah().then(
-      (value) {
-        setState(() {
-          lastReadSurahNomor = value;
-        });
-      },
-    );
+    _fetchLastReadSurah();
+  }
+
+  @override
+  void didPopNext() {
+    super.didPopNext();
+    _fetchLastReadSurah();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // This will now work correctly because the context is inside the MaterialApp
+    final modalRoute = ModalRoute.of(context);
+    if (modalRoute != null) {
+      routeObserver.subscribe(this, modalRoute);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        appBar: AppBar(
-          title: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            child: isSearching || searchQuery.isNotEmpty
-                ? TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Search...',
-                      border: InputBorder.none,
-                    ),
-                    style: const TextStyle(color: Colors.black),
-                    onChanged: _onSearchChanged,
-                  )
-                : const Text('Quran Simple'),
-          ),
-          centerTitle: true,
-          backgroundColor: AppTheme.background,
-          actions: [
-            IconButton(
-              icon: Icon(!isSearching ? Icons.search : Icons.close),
-              onPressed: () {
-                setState(() {
-                  if (isSearching) {
-                    isSearching = false;
-                    searchQuery = '';
-                    _searchController.clear();
-                  } else {
-                    isSearching = true;
-                  }
-                });
-              },
-              tooltip: !isSearching ? 'Search' : 'Close',
-            ),
-          ],
+    return Scaffold(
+      appBar: AppBar(
+        title: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: isSearching || searchQuery.isNotEmpty
+              ? TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  onChanged: _onSearchChanged,
+                  decoration: const InputDecoration(
+                    hintText: 'Search Surah...',
+                    border: InputBorder.none,
+                  ),
+                )
+              : const Text('Quran Simple'),
         ),
-        body: ColoredBox(
-          color: AppTheme.background,
-          child: FutureBuilder<List<Surah>>(
-            future: isSearching || searchQuery.isNotEmpty
-                ? filteredSurahList
-                : futureSurah,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
-              } else if (snapshot.hasData) {
-                final surahList = snapshot.data!;
-                debugPrint('${surahList.toString()} - ini surah list');
-                Surah lastReadSurah = Surah(
-                    nomor: 0,
-                    nama: '',
-                    namaLatin: '',
-                    jumlahAyat: 0,
-                    tempatTurun: '',
-                    arti: '',
-                    deskripsi: '',
-                    audioFull: {});
-                if (lastReadSurahNomor > 0 && surahList.isNotEmpty) {
-                  lastReadSurah = surahList.firstWhere(
-                    (surah) => surah.nomor == lastReadSurahNomor,
-                    orElse: () => lastReadSurah,
-                  );
+        centerTitle: true,
+        backgroundColor: AppTheme.background,
+        actions: [
+          IconButton(
+            icon: Icon(!isSearching ? Icons.search : Icons.close),
+            onPressed: () {
+              setState(() {
+                isSearching = !isSearching;
+                if (!isSearching) {
+                  searchQuery = '';
+                  _searchController.clear();
                 }
-                return ListView.builder(
-                  cacheExtent: 1000,
-                  itemCount: surahList.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return Column(
-                        children: [
-                          Container(
-                            margin: const EdgeInsets.all(10),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: const Border(
-                                left: BorderSide(color: Colors.black, width: 3),
-                                right:
-                                    BorderSide(color: Colors.black, width: 7),
-                                top: BorderSide(color: Colors.black, width: 3),
-                                bottom:
-                                    BorderSide(color: Colors.black, width: 7),
-                              ),
-                              color: AppTheme.cardColor,
-                            ),
-                            child: !(isSearching || searchQuery.isNotEmpty)
-                                ? Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Terakhir Dibaca',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.black54,
-                                            ),
-                                          ),
-                                          Text(
-                                            lastReadSurah.namaLatin,
-                                            style: AppTheme.titleStyle,
-                                          ),
-                                          Text(
-                                            lastReadSurah.arti,
-                                            style: AppTheme.subtitleStyle,
-                                          ),
-                                        ],
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  SurahDetailPage(
-                                                      surah: SurahPrevNext(
-                                                nomor: lastReadSurah.nomor,
-                                                nama: lastReadSurah.nama,
-                                                namaLatin:
-                                                    lastReadSurah.namaLatin,
-                                                jumlahAyat:
-                                                    lastReadSurah.jumlahAyat,
-                                              )),
-                                            ),
-                                          );
-                                          updateLastReadSurah(
-                                              lastReadSurah.nomor);
-                                          getLastReadSurah().then((value) {
-                                            setState(() {
-                                              lastReadSurahNomor = value;
-                                            });
-                                          });
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppTheme.buttonColor,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                            side: const BorderSide(
-                                              color: Colors.black,
-                                              width: 2,
-                                            ),
-                                          ),
-                                          foregroundColor: Colors.black,
-                                        ),
-                                        child: Text('Lanjutkan',
-                                            style: AppTheme.buttonTextStyle),
-                                      ),
-                                    ],
-                                  )
-                                : null,
-                          ),
-                          Divider(
-                            height: 20,
-                            thickness: 3,
-                            indent: 11,
-                            endIndent: 11,
-                            color: Colors.black54,
-                          )
-                        ],
-                      );
-                    }
-                    final surah = surahList[index - 1];
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => SurahDetailPage(
-                                surah: SurahPrevNext(
-                              nomor: surah.nomor,
-                              nama: surah.nama,
-                              namaLatin: surah.namaLatin,
-                              jumlahAyat: surah.jumlahAyat,
-                            )),
-                          ),
-                        );
-                        updateLastReadSurah(surah.nomor);
-                        getLastReadSurah().then((value) {
-                          setState(() {
-                            lastReadSurahNomor = value;
-                          });
-                        });
-                        debugPrint('tap');
-                      },
-                      child: ContainerSurah(surah: surah),
-                    );
-                  },
+              });
+            },
+            tooltip: !isSearching ? 'Search' : 'Close',
+          ),
+        ],
+      ),
+      body: ColoredBox(
+        color: AppTheme.background,
+        child: FutureBuilder<List<Surah>>(
+          future: isSearching || searchQuery.isNotEmpty
+              ? filteredSurahList
+              : futureSurah,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else if (snapshot.hasData) {
+              final surahList = snapshot.data!;
+              debugPrint('${surahList.toString()} - ini surah list');
+              Surah lastReadSurah = Surah(
+                  nomor: 0,
+                  nama: '',
+                  namaLatin: '',
+                  jumlahAyat: 0,
+                  tempatTurun: '',
+                  arti: '',
+                  deskripsi: '',
+                  audioFull: {});
+              if (lastReadSurahNomor > 0 && surahList.isNotEmpty) {
+                lastReadSurah = surahList.firstWhere(
+                  (surah) => surah.nomor == lastReadSurahNomor,
+                  orElse: () => lastReadSurah,
                 );
               }
-              return const Center(child: Text('No data available'));
-            },
-          ),
+              return ListView.builder(
+                cacheExtent: 1000,
+                itemCount: surahList.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return Column(
+                      children: [
+                        Container(
+                          margin: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: const Border(
+                              left: BorderSide(color: Colors.black, width: 3),
+                              right: BorderSide(color: Colors.black, width: 7),
+                              top: BorderSide(color: Colors.black, width: 3),
+                              bottom: BorderSide(color: Colors.black, width: 7),
+                            ),
+                            color: AppTheme.cardColor,
+                          ),
+                          child: !(isSearching || searchQuery.isNotEmpty)
+                              ? Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Terakhir Dibaca',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                        Text(
+                                          lastReadSurah.namaLatin,
+                                          style: AppTheme.titleStyle,
+                                        ),
+                                        Text(
+                                          lastReadSurah.arti,
+                                          style: AppTheme.subtitleStyle,
+                                        ),
+                                      ],
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                SurahDetailPage(
+                                                    surah: SurahPrevNext(
+                                              nomor: lastReadSurah.nomor,
+                                              nama: lastReadSurah.nama,
+                                              namaLatin:
+                                                  lastReadSurah.namaLatin,
+                                              jumlahAyat:
+                                                  lastReadSurah.jumlahAyat,
+                                            )),
+                                          ),
+                                        );
+                                        updateLastReadSurah(
+                                            lastReadSurah.nomor);
+                                        getLastReadSurah().then((value) {
+                                          setState(() {
+                                            lastReadSurahNomor = value;
+                                          });
+                                        });
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.buttonColor,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          side: const BorderSide(
+                                            color: Colors.black,
+                                            width: 2,
+                                          ),
+                                        ),
+                                        foregroundColor: Colors.black,
+                                      ),
+                                      child: Text('Lanjutkan',
+                                          style: AppTheme.buttonTextStyle),
+                                    ),
+                                  ],
+                                )
+                              : null,
+                        ),
+                        Divider(
+                          height: 20,
+                          thickness: 3,
+                          indent: 11,
+                          endIndent: 11,
+                          color: Colors.black54,
+                        )
+                      ],
+                    );
+                  }
+                  final surah = surahList[index - 1];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SurahDetailPage(
+                              surah: SurahPrevNext(
+                            nomor: surah.nomor,
+                            nama: surah.nama,
+                            namaLatin: surah.namaLatin,
+                            jumlahAyat: surah.jumlahAyat,
+                          )),
+                        ),
+                      );
+                      updateLastReadSurah(surah.nomor);
+                      getLastReadSurah().then((value) {
+                        setState(() {
+                          lastReadSurahNomor = value;
+                        });
+                      });
+                      debugPrint('tap');
+                    },
+                    child: ContainerSurah(surah: surah),
+                  );
+                },
+              );
+            }
+            return const Center(child: Text('No data available'));
+          },
         ),
       ),
     );
@@ -998,7 +1030,7 @@ class ButtonPrevNext extends StatelessWidget {
                                 builder: (context) => SurahDetailPage(
                                     surah: surahDetail.suratSebelumnya!)));
 
-                        updateLastReadSurah(surahDetail.nomor);
+                        updateLastReadSurah(surahDetail.suratSebelumnya!.nomor);
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1040,7 +1072,8 @@ class ButtonPrevNext extends StatelessWidget {
                                 builder: (context) => SurahDetailPage(
                                     surah: surahDetail.suratSelanjutnya!)));
 
-                        updateLastReadSurah(surahDetail.nomor);
+                        updateLastReadSurah(
+                            surahDetail.suratSelanjutnya!.nomor);
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
