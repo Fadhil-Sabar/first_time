@@ -717,6 +717,7 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
     futureSurahDetail = fetchListSurahDetail(widget.surah.nomor);
     _scrollController = AutoScrollController();
     _scrollController.addListener(_saveScrollPosition);
+    _loadFontSize();
   }
 
   @override
@@ -780,6 +781,23 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
         preferPosition: AutoScrollPosition.begin,
         duration: const Duration(milliseconds: 10),
       );
+    }
+  }
+
+  void _changeFontSize(int size) {
+    SharedPreferences.getInstance().then((prefs) {
+      String key = 'font_size_arab';
+      prefs.setInt(key, size);
+    });
+  }
+
+  void _loadFontSize() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedFontSize = prefs.getInt('font_size_arab');
+    if (savedFontSize != null && savedFontSize >= 20 && savedFontSize <= 40) {
+      setState(() {
+        fontSizeArab = savedFontSize;
+      });
     }
   }
 
@@ -870,6 +888,7 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                                     setState(() {
                                       if (fontSizeArab < 40) {
                                         fontSizeArab++;
+                                        _changeFontSize(fontSizeArab);
                                       }
                                     });
                                   },
