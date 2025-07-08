@@ -9,6 +9,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
+import 'package:flutter_animate/flutter_animate.dart';
+
 class AppTheme {
   static const Color background = Color(0xFFFFFBEE);
   static const Color cardColor = Color.fromRGBO(22, 196, 127, 0.8);
@@ -243,6 +245,30 @@ void main() {
   runApp(const MainApp());
 }
 
+class CustomPageRoute extends PageRouteBuilder {
+  final Widget child;
+
+  CustomPageRoute({required this.child})
+      : super(
+            pageBuilder: (context, animation, secondaryAnimation) => child,
+            transitionDuration: const Duration(milliseconds: 200),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+              const begin = Offset(1.0, 0.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOut;
+
+              final tween = Tween(begin: begin, end: end);
+              final curvedAnimation =
+                  CurvedAnimation(parent: animation, curve: curve);
+
+              return SlideTransition(
+                position: tween.animate(curvedAnimation),
+                child: child,
+              );
+            });
+}
+
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
@@ -270,7 +296,6 @@ Future<int> getLastReadSurah() async {
 
 void updateLastReadSurah(int nomor) async {
   final prefs = await SharedPreferences.getInstance();
-  debugPrint('Nomor $nomor');
   await prefs.setInt('lastReadSurahNomor', nomor);
 }
 
@@ -391,7 +416,6 @@ class _HomePageState extends State<HomePage> with RouteAware {
               return Center(child: Text('Error: ${snapshot.error}'));
             } else if (snapshot.hasData) {
               final surahList = snapshot.data!;
-              debugPrint('${surahList.toString()} - ini surah list');
               Surah lastReadSurah = Surah(
                   nomor: 0,
                   nama: '',
@@ -458,10 +482,9 @@ class _HomePageState extends State<HomePage> with RouteAware {
                                       onPressed: () {
                                         Navigator.push(
                                           context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                SurahDetailPage(
-                                                    surah: SurahPrevNext(
+                                          CustomPageRoute(
+                                            child: SurahDetailPage(
+                                                surah: SurahPrevNext(
                                               nomor: lastReadSurah.nomor,
                                               nama: lastReadSurah.nama,
                                               namaLatin:
@@ -513,8 +536,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => SurahDetailPage(
+                        CustomPageRoute(
+                          child: SurahDetailPage(
                               surah: SurahPrevNext(
                             nomor: surah.nomor,
                             nama: surah.nama,
@@ -529,7 +552,6 @@ class _HomePageState extends State<HomePage> with RouteAware {
                           lastReadSurahNomor = value;
                         });
                       });
-                      debugPrint('tap');
                     },
                     child: ContainerSurah(surah: surah),
                   );
@@ -728,7 +750,6 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
           );
 
           _hasScrolledToSavedPosition = true;
-          debugPrint('Scrolled to position: $targetPosition');
         }
       }
     } catch (e) {
@@ -757,8 +778,6 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
         preferPosition: AutoScrollPosition.begin,
         duration: const Duration(milliseconds: 10),
       );
-
-      debugPrint('Scrolling to ayat: $ayatNumber at index: $targetIndex');
     }
   }
 
@@ -787,7 +806,6 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
           IconButton(
               onPressed: () {
                 _scrollToAyat(int.tryParse(searchQuery) ?? 0);
-                debugPrint('Search for ayat: $searchQuery $_scrollController');
               },
               icon: const Icon(Icons.arrow_forward)),
           IconButton(
@@ -1026,8 +1044,8 @@ class ButtonPrevNext extends StatelessWidget {
                         // Navigate to previous surah
                         Navigator.replace(context,
                             oldRoute: ModalRoute.of(context)!,
-                            newRoute: MaterialPageRoute(
-                                builder: (context) => SurahDetailPage(
+                            newRoute: CustomPageRoute(
+                                child: SurahDetailPage(
                                     surah: surahDetail.suratSebelumnya!)));
 
                         updateLastReadSurah(surahDetail.suratSebelumnya!.nomor);
@@ -1068,8 +1086,8 @@ class ButtonPrevNext extends StatelessWidget {
                         // Navigate to next surah
                         Navigator.replace(context,
                             oldRoute: ModalRoute.of(context)!,
-                            newRoute: MaterialPageRoute(
-                                builder: (context) => SurahDetailPage(
+                            newRoute: CustomPageRoute(
+                                child: SurahDetailPage(
                                     surah: surahDetail.suratSelanjutnya!)));
 
                         updateLastReadSurah(

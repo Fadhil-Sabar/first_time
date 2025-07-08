@@ -13,6 +13,8 @@ dependencies:
   http: ^1.4.0
   shared_preferences: ^2.5.3
   scroll_to_index: ^3.0.1
+  flutter_animate: ^4.5.2
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:
@@ -24,3 +26,7 @@ flutter:
     - family: LPMQIsepMisbah
       fonts:
         - asset: fonts/LPMQIsepMisbah.ttf
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/quran.png"
