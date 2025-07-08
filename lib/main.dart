@@ -733,7 +733,7 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
       final prefs = await SharedPreferences.getInstance();
       final key = 'scroll_position_${widget.surah.nomor}';
       final savedPosition = prefs.getDouble(key);
-
+      debugPrint('Saved position for ${widget.surah.nomor}: $savedPosition');
       if (savedPosition != null && _scrollController.hasClients) {
         // Wait a bit more to ensure ListView is fully rendered
         await Future.delayed(const Duration(milliseconds: 100));
@@ -748,12 +748,12 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
             duration: const Duration(milliseconds: 800),
             curve: Curves.easeInOut,
           );
-
-          _hasScrolledToSavedPosition = true;
         }
       }
     } catch (e) {
       debugPrint('Error loading scroll position: $e');
+    } finally {
+      _hasScrolledToSavedPosition = true; // Set the flag to true
     }
   }
 
