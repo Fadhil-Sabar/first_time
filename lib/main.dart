@@ -876,6 +876,7 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
                                     setState(() {
                                       if (fontSizeArab > 20) {
                                         fontSizeArab--;
+                                        _changeFontSize(fontSizeArab);
                                       }
                                     });
                                   },
