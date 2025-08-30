@@ -384,7 +384,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     border: InputBorder.none,
                   ),
                 )
-              : const Text('Quran Simple'),
+              : Text('Quran Simple'),
         ),
         centerTitle: true,
         backgroundColor: AppTheme.background,
@@ -432,132 +432,138 @@ class _HomePageState extends State<HomePage> with RouteAware {
                   orElse: () => lastReadSurah,
                 );
               }
-              return ListView.builder(
-                cacheExtent: 1000,
-                itemCount: surahList.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return Column(
-                      children: [
-                        Container(
-                          margin: const EdgeInsets.all(10),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            border: const Border(
-                              left: BorderSide(color: Colors.black, width: 3),
-                              right: BorderSide(color: Colors.black, width: 7),
-                              top: BorderSide(color: Colors.black, width: 3),
-                              bottom: BorderSide(color: Colors.black, width: 7),
-                            ),
-                            color: AppTheme.cardColor,
-                          ),
-                          child: !(isSearching || searchQuery.isNotEmpty)
-                              ? Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+              return ResponsiveLayout(
+                  mobileWidget: ListView.builder(
+                    cacheExtent: 1000,
+                    itemCount: surahList.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return Column(
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.all(10),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                border: const Border(
+                                  left:
+                                      BorderSide(color: Colors.black, width: 3),
+                                  right:
+                                      BorderSide(color: Colors.black, width: 7),
+                                  top:
+                                      BorderSide(color: Colors.black, width: 3),
+                                  bottom:
+                                      BorderSide(color: Colors.black, width: 7),
+                                ),
+                                color: AppTheme.cardColor,
+                              ),
+                              child: !(isSearching || searchQuery.isNotEmpty)
+                                  ? Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
-                                        const Text(
-                                          'Terakhir Dibaca',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.black54,
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Terakhir Dibaca',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.black54,
+                                              ),
+                                            ),
+                                            Text(
+                                              lastReadSurah.namaLatin,
+                                              style: AppTheme.titleStyle,
+                                            ),
+                                            Text(
+                                              lastReadSurah.arti,
+                                              style: AppTheme.subtitleStyle,
+                                            ),
+                                          ],
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              CustomPageRoute(
+                                                child: SurahDetailPage(
+                                                    surah: SurahPrevNext(
+                                                  nomor: lastReadSurah.nomor,
+                                                  nama: lastReadSurah.nama,
+                                                  namaLatin:
+                                                      lastReadSurah.namaLatin,
+                                                  jumlahAyat:
+                                                      lastReadSurah.jumlahAyat,
+                                                )),
+                                              ),
+                                            );
+                                            updateLastReadSurah(
+                                                lastReadSurah.nomor);
+                                            getLastReadSurah().then((value) {
+                                              setState(() {
+                                                lastReadSurahNomor = value;
+                                              });
+                                            });
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                AppTheme.buttonColor,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              side: const BorderSide(
+                                                color: Colors.black,
+                                                width: 2,
+                                              ),
+                                            ),
+                                            foregroundColor: Colors.black,
                                           ),
-                                        ),
-                                        Text(
-                                          lastReadSurah.namaLatin,
-                                          style: AppTheme.titleStyle,
-                                        ),
-                                        Text(
-                                          lastReadSurah.arti,
-                                          style: AppTheme.subtitleStyle,
+                                          child: Text('Lanjutkan',
+                                              style: AppTheme.buttonTextStyle),
                                         ),
                                       ],
-                                    ),
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          CustomPageRoute(
-                                            child: SurahDetailPage(
-                                                surah: SurahPrevNext(
-                                              nomor: lastReadSurah.nomor,
-                                              nama: lastReadSurah.nama,
-                                              namaLatin:
-                                                  lastReadSurah.namaLatin,
-                                              jumlahAyat:
-                                                  lastReadSurah.jumlahAyat,
-                                            )),
-                                          ),
-                                        );
-                                        updateLastReadSurah(
-                                            lastReadSurah.nomor);
-                                        getLastReadSurah().then((value) {
-                                          setState(() {
-                                            lastReadSurahNomor = value;
-                                          });
-                                        });
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppTheme.buttonColor,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          side: const BorderSide(
-                                            color: Colors.black,
-                                            width: 2,
-                                          ),
-                                        ),
-                                        foregroundColor: Colors.black,
-                                      ),
-                                      child: Text('Lanjutkan',
-                                          style: AppTheme.buttonTextStyle),
-                                    ),
-                                  ],
-                                )
-                              : null,
-                        ),
-                        Divider(
-                          height: 20,
-                          thickness: 3,
-                          indent: 11,
-                          endIndent: 11,
-                          color: Colors.black54,
-                        )
-                      ],
-                    );
-                  }
-                  final surah = surahList[index - 1];
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        CustomPageRoute(
-                          child: SurahDetailPage(
-                              surah: SurahPrevNext(
-                            nomor: surah.nomor,
-                            nama: surah.nama,
-                            namaLatin: surah.namaLatin,
-                            jumlahAyat: surah.jumlahAyat,
-                          )),
-                        ),
-                      );
-                      updateLastReadSurah(surah.nomor);
-                      getLastReadSurah().then((value) {
-                        setState(() {
-                          lastReadSurahNomor = value;
-                        });
-                      });
+                                    )
+                                  : null,
+                            ),
+                            Divider(
+                              height: 20,
+                              thickness: 3,
+                              indent: 11,
+                              endIndent: 11,
+                              color: Colors.black54,
+                            )
+                          ],
+                        );
+                      }
+                      final surah = surahList[index - 1];
+                      return GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              CustomPageRoute(
+                                child: SurahDetailPage(
+                                    surah: SurahPrevNext(
+                                  nomor: surah.nomor,
+                                  nama: surah.nama,
+                                  namaLatin: surah.namaLatin,
+                                  jumlahAyat: surah.jumlahAyat,
+                                )),
+                              ),
+                            );
+                            updateLastReadSurah(surah.nomor);
+                            getLastReadSurah().then((value) {
+                              setState(() {
+                                lastReadSurahNomor = value;
+                              });
+                            });
+                          },
+                          child: CardSurah(surah: surah));
                     },
-                    child: ContainerSurah(surah: surah),
-                  );
-                },
-              );
+                  ),
+                  desktopWidget: ContainerSurahDesktop(surahList: surahList));
             }
             return const Center(child: Text('No data available'));
           },
@@ -569,6 +575,111 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
 class ContainerSurah extends StatelessWidget {
   const ContainerSurah({
+    super.key,
+    required this.surah,
+  });
+
+  final Surah surah;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(10),
+      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 20, top: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: const Border(
+          left: BorderSide(color: Colors.black, width: 3),
+          right: BorderSide(color: Colors.black, width: 7),
+          top: BorderSide(color: Colors.black, width: 3),
+          bottom: BorderSide(color: Colors.black, width: 7),
+        ),
+        color: AppTheme.cardColor,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('${surah.nomor}. ${surah.namaLatin}',
+                  style: AppTheme.titleStyle),
+              Text(
+                surah.nama,
+                style: AppTheme.fontArabStyle,
+              )
+            ],
+          ),
+          Text(surah.arti, style: AppTheme.subtitleStyle),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('${surah.tempatTurun} | ${surah.jumlahAyat} ayat',
+                  style: AppTheme.subtitleStyle),
+              Icon(
+                Icons.keyboard_arrow_right,
+                color: AppTheme.buttonColor,
+              )
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ContainerSurahDesktop extends StatelessWidget {
+  final List<Surah> surahList;
+  const ContainerSurahDesktop({
+    super.key,
+    required this.surahList,
+  });
+
+  void _navigateToDetail(BuildContext context, Surah surah) {
+    Navigator.push(
+      context,
+      CustomPageRoute(
+        child: SurahDetailPage(
+          surah: SurahPrevNext(
+            nomor: surah.nomor,
+            nama: surah.nama,
+            namaLatin: surah.namaLatin,
+            jumlahAyat: surah.jumlahAyat,
+          ),
+        ),
+      ),
+    );
+    updateLastReadSurah(surah.nomor);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 600,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 5,
+          childAspectRatio: 2.5,
+        ),
+        itemCount: surahList.length,
+        itemBuilder: (context, index) {
+          final surah = surahList[index];
+          return MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => _navigateToDetail(context, surah),
+              child: CardSurah(surah: surah),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class CardSurah extends StatelessWidget {
+  const CardSurah({
     super.key,
     required this.surah,
   });
@@ -1133,5 +1244,24 @@ class ButtonPrevNext extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class ResponsiveLayout extends StatelessWidget {
+  final Widget mobileWidget;
+  final Widget desktopWidget;
+
+  const ResponsiveLayout(
+      {super.key, required this.mobileWidget, required this.desktopWidget});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth <= 900) {
+        return mobileWidget;
+      } else {
+        return desktopWidget;
+      }
+    });
   }
 }
