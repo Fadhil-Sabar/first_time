@@ -295,9 +295,11 @@ Future<int> getLastReadSurah() async {
   return prefs.getInt('lastReadSurahNomor') ?? 1;
 }
 
-void updateLastReadSurah(int nomor) async {
+Future<void> updateLastReadSurah(int nomor) async {
+  if (nomor <= 0) return;
   final prefs = await SharedPreferences.getInstance();
-  await prefs.setInt('lastReadSurahNomor', nomor);
+  final success = await prefs.setInt('lastReadSurahNomor', nomor);
+  // debug logging removed for release builds
 }
 
 class _HomePageState extends State<HomePage> with RouteAware {
@@ -485,7 +487,16 @@ class _HomePageState extends State<HomePage> with RouteAware {
                                           ],
                                         ),
                                         ElevatedButton(
-                                          onPressed: () {
+                                          onPressed: () async {
+                                            await updateLastReadSurah(
+                                                lastReadSurah.nomor);
+                                            getLastReadSurah().then((value) {
+                                              if (mounted) {
+                                                setState(() {
+                                                  lastReadSurahNomor = value;
+                                                });
+                                              }
+                                            });
                                             Navigator.push(
                                               context,
                                               CustomPageRoute(
@@ -500,13 +511,6 @@ class _HomePageState extends State<HomePage> with RouteAware {
                                                 )),
                                               ),
                                             );
-                                            updateLastReadSurah(
-                                                lastReadSurah.nomor);
-                                            getLastReadSurah().then((value) {
-                                              setState(() {
-                                                lastReadSurahNomor = value;
-                                              });
-                                            });
                                           },
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor:
@@ -540,7 +544,15 @@ class _HomePageState extends State<HomePage> with RouteAware {
                       }
                       final surah = surahList[index - 1];
                       return GestureDetector(
-                          onTap: () {
+                          onTap: () async {
+                            await updateLastReadSurah(surah.nomor);
+                            getLastReadSurah().then((value) {
+                              if (mounted) {
+                                setState(() {
+                                  lastReadSurahNomor = value;
+                                });
+                              }
+                            });
                             Navigator.push(
                               context,
                               CustomPageRoute(
@@ -553,12 +565,6 @@ class _HomePageState extends State<HomePage> with RouteAware {
                                 )),
                               ),
                             );
-                            updateLastReadSurah(surah.nomor);
-                            getLastReadSurah().then((value) {
-                              setState(() {
-                                lastReadSurahNomor = value;
-                              });
-                            });
                           },
                           child: CardSurah(surah: surah));
                     },
@@ -635,7 +641,8 @@ class ContainerSurahDesktop extends StatelessWidget {
     required this.surahList,
   });
 
-  void _navigateToDetail(BuildContext context, Surah surah) {
+  Future<void> _navigateToDetail(BuildContext context, Surah surah) async {
+    await updateLastReadSurah(surah.nomor);
     Navigator.push(
       context,
       CustomPageRoute(
@@ -649,7 +656,6 @@ class ContainerSurahDesktop extends StatelessWidget {
         ),
       ),
     );
-    updateLastReadSurah(surah.nomor);
   }
 
   @override
@@ -815,25 +821,33 @@ class SurahDetailPage extends StatefulWidget {
   State<SurahDetailPage> createState() => _SurahDetailPageState();
 }
 
-class _SurahDetailPageState extends State<SurahDetailPage> {
+class _SurahDetailPageState extends State<SurahDetailPage>
+    with WidgetsBindingObserver {
   late Future<SurahDetail> futureSurahDetail;
   int fontSizeArab = AppTheme.fontArabStyle.fontSize!.toInt();
   late AutoScrollController _scrollController;
   bool _hasScrolledToSavedPosition = false; // Add this flag
   String searchQuery = '';
+  SharedPreferences? _prefs;
+  Timer? _saveDebounce;
 
   @override
   void initState() {
     super.initState();
     futureSurahDetail = fetchListSurahDetail(widget.surah.nomor);
     _scrollController = AutoScrollController();
-    _scrollController.addListener(_saveScrollPosition);
+    _scrollController.addListener(_onScrollChanged);
     _loadFontSize();
+    // Cache SharedPreferences and observe lifecycle
+    SharedPreferences.getInstance().then((p) => _prefs = p);
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_saveScrollPosition);
+    WidgetsBinding.instance.removeObserver(this);
+    _saveDebounce?.cancel();
+    _scrollController.removeListener(_onScrollChanged);
     _scrollController.dispose();
     super.dispose();
   }
@@ -863,22 +877,47 @@ class _SurahDetailPageState extends State<SurahDetailPage> {
         }
       }
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error loading scroll position: $e');
-      }
+      // logging removed
     } finally {
       _hasScrolledToSavedPosition = true; // Set the flag to true
     }
   }
 
   // Save scroll position
-  void _saveScrollPosition() {
-    if (_scrollController.hasClients && _hasScrolledToSavedPosition) {
-      SharedPreferences.getInstance().then((prefs) {
-        String key = 'scroll_position_${widget.surah.nomor}';
-        prefs.setDouble(key, _scrollController.offset);
-      });
+  Future<void> _saveScrollPosition() async {
+    if (!(_scrollController.hasClients && _hasScrolledToSavedPosition)) return;
+
+    final offset = _scrollController.offset;
+    final key = 'scroll_position_${widget.surah.nomor}';
+
+    // logging removed
+
+    try {
+      final prefs = _prefs ?? await SharedPreferences.getInstance();
+      await prefs.setDouble(key, offset);
+    } catch (e) {
+      // logging removed
     }
+  }
+
+  void _onScrollChanged() {
+    if (!(_scrollController.hasClients && _hasScrolledToSavedPosition)) return;
+
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 600), () async {
+      await _saveScrollPosition();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      // cancel pending debounce and persist immediately
+      _saveDebounce?.cancel();
+      _saveScrollPosition();
+    }
+    super.didChangeAppLifecycleState(state);
   }
 
   void _scrollToAyat(int ayatNumber) {
@@ -1173,15 +1212,15 @@ class ButtonPrevNext extends StatelessWidget {
                       color: AppTheme.buttonColor,
                     ),
                     child: TextButton(
-                      onPressed: () {
-                        // Navigate to previous surah
+                      onPressed: () async {
+                        // Save last read then navigate to previous surah
+                        await updateLastReadSurah(
+                            surahDetail.suratSebelumnya!.nomor);
                         Navigator.replace(context,
                             oldRoute: ModalRoute.of(context)!,
                             newRoute: CustomPageRoute(
                                 child: SurahDetailPage(
                                     surah: surahDetail.suratSebelumnya!)));
-
-                        updateLastReadSurah(surahDetail.suratSebelumnya!.nomor);
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1215,16 +1254,15 @@ class ButtonPrevNext extends StatelessWidget {
                     ),
                     child: TextButton(
                       // ignore: unrelated_type_equality_checks
-                      onPressed: () {
-                        // Navigate to next surah
+                      onPressed: () async {
+                        // Save last read then navigate to next surah
+                        await updateLastReadSurah(
+                            surahDetail.suratSelanjutnya!.nomor);
                         Navigator.replace(context,
                             oldRoute: ModalRoute.of(context)!,
                             newRoute: CustomPageRoute(
                                 child: SurahDetailPage(
                                     surah: surahDetail.suratSelanjutnya!)));
-
-                        updateLastReadSurah(
-                            surahDetail.suratSelanjutnya!.nomor);
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
